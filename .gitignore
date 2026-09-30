@@ -1,0 +1,52 @@
+
+# Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# .NET user-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.sln.iml
+.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]enchmarkDotNet.Artifacts/
+
+# Publish output
+publish/
+
+# Generated files
+Generated/
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local secrets/config overrides
+appsettings.Development.json
+secrets.json
+*.png
