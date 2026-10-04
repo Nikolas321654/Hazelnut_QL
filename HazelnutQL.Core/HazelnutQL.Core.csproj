@@ -12,10 +12,6 @@
     <ItemGroup>
       <Folder Include="samples\HazelnitQL.Demo\" />
       <Folder Include="src\HazelnutQL.Core\AST\" />
-      <Folder Include="src\HazelnutQL.Core\Execution\" />
-      <Folder Include="src\HazelnutQL.Core\Parsing\" />
-      <Folder Include="src\HazelnutQL.Core\Types\" />
-      <Folder Include="src\HazelnutQL.Core\Validation\" />
       <Folder Include="tests\HazelnitQL.Tests\" />
     </ItemGroup>
 
