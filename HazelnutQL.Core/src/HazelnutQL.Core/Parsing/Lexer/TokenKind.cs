@@ -1,6 +1,7 @@
-﻿public enum TokenKind
+namespace HazelnutQL.Core.HazelnutQL.Core.Parsing.Lexer;
+
+public enum TokenKind
 {
-    StartOfFile,
     EndOfFile,
 
     Bang,       // !
@@ -21,5 +22,7 @@
     Name,
     Int,
     Float,
-    String
+    String,
+    Boolean,
+    Null
 }
