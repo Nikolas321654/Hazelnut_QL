@@ -1,6 +1,8 @@
-﻿namespace HazelnutQL.Core.HazelnutQL.Core.Parsing.AST_Nodes;
+using HazelnutQL.Core.HazelnutQL.Core.Parsing.AST_Nodes.Interfaces;
 
-public class DocumentNode
+namespace HazelnutQL.Core.HazelnutQL.Core.Parsing.AST_Nodes;
+
+public sealed class DocumentNode : ASTNode
 {
-    
+    public IReadOnlyList<IDefinitionNode> Definitions { get; init; } = [];
 }

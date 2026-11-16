@@ -1,6 +1,8 @@
-﻿namespace HazelnutQL.Core.HazelnutQL.Core.Parsing.AST_Nodes;
+using HazelnutQL.Core.HazelnutQL.Core.Parsing.Lexer;
 
-public class ASTNode
+namespace HazelnutQL.Core.HazelnutQL.Core.Parsing.AST_Nodes;
+
+public abstract class ASTNode
 {
-    
+    public SourceLocation Location { get; init; }
 }
