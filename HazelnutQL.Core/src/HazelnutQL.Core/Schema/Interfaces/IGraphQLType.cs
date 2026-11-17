@@ -1,6 +1,6 @@
-﻿namespace HazelnutQL.Core.HazelnutQL.Core.Schema.Interfaces;
+namespace HazelnutQL.Core.HazelnutQL.Core.Schema.Interfaces;
 
 public interface IGraphQLType
 {
-    
+    string Name { get; }
 }
