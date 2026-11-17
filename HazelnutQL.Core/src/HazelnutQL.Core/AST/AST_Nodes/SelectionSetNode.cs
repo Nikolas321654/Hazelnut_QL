@@ -1,6 +1,8 @@
-﻿namespace HazelnutQL.Core.HazelnutQL.Core.Parsing.AST_Nodes;
+using HazelnutQL.Core.HazelnutQL.Core.Parsing.AST_Nodes.Interfaces;
 
-public class SelectionSetNode
+namespace HazelnutQL.Core.HazelnutQL.Core.Parsing.AST_Nodes;
+
+public sealed class SelectionSetNode : ASTNode
 {
-    
+    public IReadOnlyList<ISelectionNode> Selections { get; init; } = [];
 }
