@@ -8,7 +8,6 @@ on:
   workflow_dispatch:
 
 env:
-  DOTNET_VERSION: '10.0.x'
   SOLUTION_PATH: 'HazelnutQL.Core.sln'
 
 jobs:
@@ -25,7 +24,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          global-json-file: global.json
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
@@ -76,7 +75,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          global-json-file: global.json
 
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_PATH }}
@@ -114,7 +113,7 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          global-json-file: global.json
 
       - name: Pack NuGet Package (HazelnutQL.Core)
         run: >
