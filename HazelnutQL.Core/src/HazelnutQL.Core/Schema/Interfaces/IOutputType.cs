@@ -1,6 +1,3 @@
-﻿namespace HazelnutQL.Core.HazelnutQL.Core.Schema.Interfaces;
+namespace HazelnutQL.Core.HazelnutQL.Core.Schema.Interfaces;
 
-public interface IOutputType
-{
-    
-}
+public interface IOutputType : IGraphQLType;
