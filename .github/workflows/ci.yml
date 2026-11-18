@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOTNET_VERSION: '10.0.0' 
+  DOTNET_VERSION: '10.0.x'
   SOLUTION_PATH: 'HazelnutQL.Core.sln'
 
 jobs:
@@ -65,7 +65,7 @@ jobs:
     name: Mutation Testing (Stryker.NET)
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'pull_request' && github.base_ref == 'develop') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop')
 
     steps:
       - name: Checkout repository
@@ -81,13 +81,14 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_PATH }}
 
-      - name: Install dotnet-stryker tool
-        run: dotnet tool install --global dotnet-stryker
+      - name: Restore local .NET tools
+        run: dotnet tool restore
 
       - name: Run Stryker Mutation Testing
-        working-directory: ./tests/MyGraphQL.Tests
+        working-directory: ./HazelnutQL.Core.Tests
         run: >
           dotnet-stryker
+          --project ../HazelnutQL.Core/HazelnutQL.Core.csproj
           --reporter "html"
           --reporter "progress"
           --reporter "cleartext"
@@ -98,7 +99,7 @@ jobs:
         if: always()
         with:
           name: stryker-mutation-report
-          path: ./tests/MyGraphQL.Tests/StrykerOutput
+          path: ./HazelnutQL.Core.Tests/StrykerOutput
 
   package-and-verify:
     name: Package & Artifacts
@@ -115,9 +116,9 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Pack NuGet Package (MyGraphQL.Core)
+      - name: Pack NuGet Package (HazelnutQL.Core)
         run: >
-          dotnet pack ./src/MyGraphQL.Core/MyGraphQL.Core.csproj
+          dotnet pack ./HazelnutQL.Core/HazelnutQL.Core.csproj
           --configuration Release
           --output ./nupkg
 
