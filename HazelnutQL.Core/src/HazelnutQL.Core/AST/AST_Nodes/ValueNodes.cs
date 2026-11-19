@@ -9,7 +9,7 @@ public sealed class VariableNode : ValueNode
 
 public sealed class IntValueNode : ValueNode
 {
-    public required long Value { get; init; }
+    public required string Value { get; init; }
 }
 
 public sealed class FloatValueNode : ValueNode

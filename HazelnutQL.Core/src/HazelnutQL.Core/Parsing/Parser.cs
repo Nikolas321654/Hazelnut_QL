@@ -72,7 +72,7 @@ public class Parser
     {
         SourceLocation start = _current.SourceLocation;
         OperationType operation = Advance().Value == "query" ? OperationType.Query : OperationType.Mutation;
-        string? name = _current.TokenKind == TokenKind.Name ? Advance().Value : null;
+        string? name = IsNameToken(_current) ? Advance().Value : null;
         IReadOnlyList<VariableDefinitionNode> variables = ParseVariableDefinitions();
         IReadOnlyList<DirectiveNode> directives = ParseDirectives(false);
         SelectionSetNode selectionSet = ParseSelectionSet();
@@ -211,7 +211,7 @@ public class Parser
         SourceLocation start = _current.SourceLocation;
         Expect(TokenKind.Spread);
 
-        bool isSpread = _current.TokenKind == TokenKind.Name && _current.Value != "on";
+        bool isSpread = IsNameToken(_current) && _current.Value != "on";
         if (isSpread)
         {
             string name = Advance().Value;
@@ -327,12 +327,7 @@ public class Parser
             case TokenKind.Int:
             {
                 Token token = Advance();
-                if (!long.TryParse(token.Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long value))
-                {
-                    throw Error($"Int value '{token.Value}' is out of range.", start);
-                }
-
-                return new IntValueNode { Value = value, Location = Span(start) };
+                return new IntValueNode { Value = token.Value, Location = Span(start) };
             }
 
             case TokenKind.Float:
@@ -428,7 +423,17 @@ public class Parser
 
     private string ExpectName()
     {
-        return Expect(TokenKind.Name).Value;
+        if (!IsNameToken(_current))
+        {
+            throw Error($"Expected {TokenKind.Name}, found {_current}.", _current.SourceLocation);
+        }
+
+        return Advance().Value;
+    }
+
+    private static bool IsNameToken(Token token)
+    {
+        return token.TokenKind is TokenKind.Name or TokenKind.Boolean or TokenKind.Null;
     }
 
     private void ExpectKeyword(string keyword)

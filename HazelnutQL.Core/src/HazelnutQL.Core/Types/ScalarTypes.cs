@@ -22,7 +22,7 @@ public static class ScalarTypes
 
         return e.ValueKind switch
         {
-            JsonValueKind.Number => e.TryGetInt64(out var l) ? l : e.GetDouble(),
+            JsonValueKind.Number => e.TryGetInt64(out var l) ? (object)l : e.GetDouble(),
             JsonValueKind.String => e.GetString()!,
             JsonValueKind.True => true,
             JsonValueKind.False => false,

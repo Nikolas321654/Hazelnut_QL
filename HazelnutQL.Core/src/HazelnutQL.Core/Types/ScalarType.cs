@@ -1,3 +1,4 @@
+using System.Text.Json;
 using HazelnutQL.Core.HazelnutQL.Core.Schema.Interfaces;
 
 namespace HazelnutQL.Core.HazelnutQL.Core.Schema;
@@ -18,10 +19,13 @@ public class ScalarType : IInputType, IOutputType
     public string Name { get; }
 
     /// <summary>Coerces an external (variable) value to its internal representation.</summary>
-    public object? ParseValue(object? value) => value is null ? null : _parseValue(value);
+    public object? ParseValue(object? value) => IsNull(value) ? null : _parseValue(value!);
 
     /// <summary>Coerces a resolver result to its output representation.</summary>
-    public object? Serialize(object? value) => value is null ? null : _serialize(value);
+    public object? Serialize(object? value) => IsNull(value) ? null : _serialize(value!);
+
+    private static bool IsNull(object? value) =>
+        value is null or JsonElement { ValueKind: JsonValueKind.Null };
 
     public override string ToString() => Name;
 }

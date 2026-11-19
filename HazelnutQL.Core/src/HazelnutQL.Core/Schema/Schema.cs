@@ -55,6 +55,12 @@ public class Schema
                     Register(field.Type);
                     foreach (var argument in field.Arguments.Values)
                     {
+                        if (Unwrap(argument.Type) is not IInputType)
+                        {
+                            throw new InvalidOperationException(
+                                $"Argument '{argument.Name}' on field '{obj.Name}.{field.Name}' must have an input type, got '{argument.Type.Name}'.");
+                        }
+
                         Register(argument.Type);
                     }
                 }

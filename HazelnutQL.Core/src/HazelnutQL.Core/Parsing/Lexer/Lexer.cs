@@ -32,7 +32,7 @@ public class Lexer(string source)
         }
 
         char currentChar = _source[_position++];
-        if (currentChar == '\n')
+        if (currentChar == '\n' || (currentChar == '\r' && PeekAt(0) != '\n'))
         {
             _line++;
             _column = 1;
@@ -56,9 +56,10 @@ public class Lexer(string source)
         return index >= _source.Length ? '\0' : _source[index];
     }
 
-    private GraphQLSyntaxException Error(string message, int line, int column)
+    private GraphQLSyntaxException Error(string message, int line, int column, int? startOffset = null)
     {
-        return new GraphQLSyntaxException(message, new SourceLocation(line, column, _position, _position));
+        return new GraphQLSyntaxException(message,
+            new SourceLocation(line, column, startOffset ?? _position, _position));
     }
 
     private void SkipIgnored()
@@ -143,8 +144,8 @@ public class Lexer(string source)
         if (currentChar == '"')
         {
             string value = PeekAt(1) == '"' && PeekAt(2) == '"'
-                ? ReadBlockString(startLine, startColumn)
-                : ReadString(startLine, startColumn);
+                ? ReadBlockString(startLine, startColumn, startPosition)
+                : ReadString(startLine, startColumn, startPosition);
             return CreateToken(value, TokenKind.String, startLine, startColumn, startPosition);
         }
 
@@ -205,19 +206,19 @@ public class Lexer(string source)
             Read();
             if (char.IsAsciiDigit(Peek()))
             {
-                throw Error("Invalid number, unexpected digit after 0.", startLine, startColumn);
+                throw Error("Invalid number, unexpected digit after 0.", startLine, startColumn, start);
             }
         }
         else
         {
-            ReadDigits(startLine, startColumn);
+            ReadDigits(startLine, startColumn, start);
         }
 
         if (Peek() == '.')
         {
             isFloat = true;
             Read();
-            ReadDigits(startLine, startColumn);
+            ReadDigits(startLine, startColumn, start);
         }
 
         if (Peek() is 'e' or 'E')
@@ -230,22 +231,22 @@ public class Lexer(string source)
                 Read();
             }
 
-            ReadDigits(startLine, startColumn);
+            ReadDigits(startLine, startColumn, start);
         }
 
         if (Peek() == '.' || IsNameStart(Peek()))
         {
-            throw Error($"Invalid number, unexpected character '{Peek()}'.", startLine, startColumn);
+            throw Error($"Invalid number, unexpected character '{Peek()}'.", startLine, startColumn, start);
         }
 
         return (_source[start.._position], isFloat ? TokenKind.Float : TokenKind.Int);
     }
 
-    private void ReadDigits(int startLine, int startColumn)
+    private void ReadDigits(int startLine, int startColumn, int startPosition)
     {
         if (!char.IsAsciiDigit(Peek()))
         {
-            throw Error("Invalid number, expected a digit.", startLine, startColumn);
+            throw Error("Invalid number, expected a digit.", startLine, startColumn, startPosition);
         }
 
         while (char.IsAsciiDigit(Peek()))
@@ -254,7 +255,7 @@ public class Lexer(string source)
         }
     }
 
-    private string ReadString(int startLine, int startColumn)
+    private string ReadString(int startLine, int startColumn, int startPosition)
     {
         Read();
         StringBuilder builder = new();
@@ -263,7 +264,7 @@ public class Lexer(string source)
         {
             if (IsEnd)
             {
-                throw Error("Unterminated string literal.", startLine, startColumn);
+                throw Error("Unterminated string literal.", startLine, startColumn, startPosition);
             }
 
             char c = Read();
@@ -275,12 +276,12 @@ public class Lexer(string source)
 
             if (c is '\n' or '\r')
             {
-                throw Error("Unterminated string literal.", startLine, startColumn);
+                throw Error("Unterminated string literal.", startLine, startColumn, startPosition);
             }
 
             if (c < ' ' && c != '\t')
             {
-                throw Error($"Invalid character within string: U+{(int)c:X4}.", _line, _column - 1);
+                throw Error($"Invalid character within string: U+{(int)c:X4}.", _line, _column - 1, _position - 1);
             }
 
             if (c != '\\')
@@ -291,6 +292,7 @@ public class Lexer(string source)
 
             int escapeLine = _line;
             int escapeColumn = _column - 1;
+            int escapeStart = _position - 1;
             char escaped = Read();
             switch (escaped)
             {
@@ -302,14 +304,48 @@ public class Lexer(string source)
                 case 'n': builder.Append('\n'); break;
                 case 'r': builder.Append('\r'); break;
                 case 't': builder.Append('\t'); break;
-                case 'u': builder.Append(ReadUnicodeEscape(escapeLine, escapeColumn)); break;
+                case 'u': builder.Append(ReadUnicodeEscape(escapeLine, escapeColumn, escapeStart)); break;
                 default:
-                    throw Error($"Invalid character escape sequence: '\\{escaped}'.", escapeLine, escapeColumn);
+                    throw Error($"Invalid character escape sequence: '\\{escaped}'.", escapeLine, escapeColumn,
+                        escapeStart);
             }
         }
     }
 
-    private char ReadUnicodeEscape(int line, int column)
+    private string ReadUnicodeEscape(int line, int column, int escapeStart)
+    {
+        int code = Peek() == '{'
+            ? ReadBracedCodePoint(line, column, escapeStart)
+            : ReadFourHexDigits(line, column, escapeStart);
+
+        if (code is >= 0xD800 and <= 0xDBFF)
+        {
+            // A leading surrogate must be followed by a \uXXXX trailing surrogate
+            if (Peek() != '\\' || PeekAt(1) != 'u')
+            {
+                throw Error("Invalid Unicode escape sequence: lone surrogate.", line, column, escapeStart);
+            }
+
+            Read();
+            Read();
+            int low = ReadFourHexDigits(line, column, escapeStart);
+            if (low is < 0xDC00 or > 0xDFFF)
+            {
+                throw Error("Invalid Unicode escape sequence: invalid surrogate pair.", line, column, escapeStart);
+            }
+
+            return char.ConvertFromUtf32(0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00));
+        }
+
+        if (code is >= 0xDC00 and <= 0xDFFF)
+        {
+            throw Error("Invalid Unicode escape sequence: lone surrogate.", line, column, escapeStart);
+        }
+
+        return char.ConvertFromUtf32(code);
+    }
+
+    private int ReadFourHexDigits(int line, int column, int escapeStart)
     {
         int code = 0;
         for (int i = 0; i < 4; i++)
@@ -317,17 +353,46 @@ public class Lexer(string source)
             char hex = Peek();
             if (!char.IsAsciiHexDigit(hex))
             {
-                throw Error("Invalid Unicode escape sequence.", line, column);
+                throw Error("Invalid Unicode escape sequence.", line, column, escapeStart);
             }
 
             code = code * 16 + Convert.ToInt32(hex.ToString(), 16);
             Read();
         }
 
-        return (char)code;
+        return code;
     }
 
-    private string ReadBlockString(int startLine, int startColumn)
+    private int ReadBracedCodePoint(int line, int column, int escapeStart)
+    {
+        Read(); // {
+        int code = 0;
+        int digits = 0;
+        while (char.IsAsciiHexDigit(Peek()))
+        {
+            code = code * 16 + Convert.ToInt32(Read().ToString(), 16);
+            digits++;
+            if (code > 0x10FFFF)
+            {
+                throw Error("Invalid Unicode escape sequence: code point out of range.", line, column, escapeStart);
+            }
+        }
+
+        if (digits == 0 || Peek() != '}')
+        {
+            throw Error("Invalid Unicode escape sequence.", line, column, escapeStart);
+        }
+
+        Read(); // }
+        if (code is >= 0xD800 and <= 0xDFFF)
+        {
+            throw Error("Invalid Unicode escape sequence: surrogate code point.", line, column, escapeStart);
+        }
+
+        return code;
+    }
+
+    private string ReadBlockString(int startLine, int startColumn, int startPosition)
     {
         Read();
         Read();
@@ -338,7 +403,7 @@ public class Lexer(string source)
         {
             if (IsEnd)
             {
-                throw Error("Unterminated block string.", startLine, startColumn);
+                throw Error("Unterminated block string.", startLine, startColumn, startPosition);
             }
 
             if (Peek() == '"' && PeekAt(1) == '"' && PeekAt(2) == '"')
@@ -393,17 +458,22 @@ public class Lexer(string source)
 
         int first = 0;
         int last = lines.Length;
-        while (first < last && string.IsNullOrWhiteSpace(lines[first]))
+        while (first < last && IsBlankLine(lines[first]))
         {
             first++;
         }
 
-        while (last > first && string.IsNullOrWhiteSpace(lines[last - 1]))
+        while (last > first && IsBlankLine(lines[last - 1]))
         {
             last--;
         }
 
         return string.Join('\n', lines[first..last]);
+    }
+
+    private static bool IsBlankLine(string line)
+    {
+        return line.All(c => c is ' ' or '\t');
     }
 
     private Token CreateToken(string value, TokenKind tokenKind, int line, int column, int startPosition)
