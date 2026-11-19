@@ -1,0 +1,131 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+  pull_request:
+    branches: [ "main", "master", "develop" ]
+  workflow_dispatch:
+
+env:
+  SOLUTION_PATH: 'HazelnutQL.Core.sln'
+
+jobs:
+  build-and-test:
+    name: Build & Test (.NET)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      # Temporarily disabled: .editorconfig expects CRLF, but Linux checkout yields LF.
+      # Re-enable after adding .gitattributes (eol=crlf) or switching to end_of_line = lf.
+      - name: Check code formatting (dotnet format)
+        if: false
+        run: dotnet format ${{ env.SOLUTION_PATH }} --verify-no-changes --verbosity diagnostic
+
+      - name: Build Solution
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+
+      - name: Run Tests (Unit & Property-Based) with Coverage
+        run: >
+          dotnet test ${{ env.SOLUTION_PATH }}
+          --configuration Release
+          --no-build
+          --verbosity normal
+          --collect:"XPlat Code Coverage"
+          --results-directory ./TestResults
+          --logger "trx;LogFileName=test_results.trx"
+
+      - name: Upload Test Results Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: ./TestResults
+
+  mutation-tests:
+    name: Mutation Testing (Stryker.NET)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'pull_request' && github.base_ref == 'develop') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Restore local .NET tools
+        run: dotnet tool restore
+
+      - name: Run Stryker Mutation Testing
+        working-directory: ./HazelnutQL.Core.Tests
+        run: >
+          dotnet-stryker
+          --project ../HazelnutQL.Core/HazelnutQL.Core.csproj
+          --reporter "html"
+          --reporter "progress"
+          --reporter "cleartext"
+          --break-at 70
+
+      - name: Upload Stryker Mutation Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stryker-mutation-report
+          path: ./HazelnutQL.Core.Tests/StrykerOutput
+
+  package-and-verify:
+    name: Package & Artifacts
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Pack NuGet Package (HazelnutQL.Core)
+        run: >
+          dotnet pack ./HazelnutQL.Core/HazelnutQL.Core.csproj
+          --configuration Release
+          --output ./nupkg
+
+      - name: Upload NuGet Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          path: ./nupkg/*.nupkg
