@@ -49,4 +49,5 @@ Thumbs.db
 # Local secrets/config overrides
 appsettings.Development.json
 secrets.json
-*.png
+*.pngStrykerOutput/
+TestResults/
